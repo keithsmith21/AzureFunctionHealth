@@ -1,0 +1,89 @@
+name: $(Package.Version)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: 'Package.Version'
+    type: 'string'
+
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: arcus-azure/azure-devops-templates
+      endpoint: arcus-azure
+
+variables:
+  - group: 'Arcus - GitHub Package Registry'
+  - group: 'Build Configuration'
+  - template: ./variables/build.yml
+  - name: 'Package.Version'
+    value: ${{ parameters['Package.Version'] }}
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Compile
+        pool:
+          vmImage: 'ubuntu-16.04'
+        steps:
+          - template: build/build-solution.yml@templates
+            parameters:
+              dotnetSdkVersion: '$(DotNet.Sdk.Version)'
+              version: $(Build.BuildNumber)
+          - task: CopyFiles@2
+            displayName: 'Copy build artifacts'
+            inputs:
+              contents: '**/?(bin|obj)/**'
+              targetFolder: '$(Pipeline.Workspace)/build'
+          - task: PublishPipelineArtifact@0
+            displayName: 'Publish build artifacts'
+            inputs:
+              targetPath: '$(Pipeline.Workspace)/build'
+              artifactName: Build
+
+  - stage: UnitTests
+    displayName: Unit Tests
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: UnitTests
+        displayName: 'Run unit tests'
+        pool:
+          vmImage: 'ubuntu-16.04'
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download build artifacts'
+            inputs:
+              artifact: 'Build'
+              path: '$(Build.SourcesDirectory)'
+          - template: test/run-unit-tests.yml@templates
+            parameters:
+              dotnetSdkVersion: '$(DotNet.Sdk.Version)'
+              projectName: '$(Project).Tests.Unit'
+
+  - stage: Release
+    displayName: 'Release to NuGet.org'
+    dependsOn: [UnitTests]
+    condition: succeeded()
+    jobs:
+      - job: PushToNuGet
+        displayName: 'Push to NuGet.org'
+        pool:
+          vmImage: 'ubuntu-16.04'
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download build artifacts'
+            inputs:
+              artifact: 'Build'
+              path: '$(Build.SourcesDirectory)'
+          - template: github/create-release.yml@templates
+            parameters:
+              repositoryName: 'arcus-azure/arcus.webapi.health.azurefunctions'
+              releaseNotes: |
+                Install new version via [NuGet](https://www.nuget.org/packages/Arcus.WebApi.Health.AzureFunctions/$(Build.BuildNumber))
+                ```shell
+                PM > Install-Package Arcus.WebApi.Health.AzureFunctions --Version $(Build.BuildNumber)
+                ```
+          - template: 'nuget/publish-official-package.yml@templates'

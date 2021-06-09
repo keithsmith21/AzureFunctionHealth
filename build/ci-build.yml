@@ -1,0 +1,95 @@
+name: $(date:yyyyMMdd)$(rev:.r)
+
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - src/*
+
+pr:
+  paths:
+    include:
+    - src/*
+    - build/ci-build.yml
+
+parameters:
+  - name: 'Package.Version.ManualTrigger'
+    type: string
+    default: 'preview'
+
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: arcus-azure/azure-devops-templates
+      endpoint: arcus-azure
+
+variables:
+  - group: 'Arcus - GitHub Package Registry'
+  - group: 'Build Configuration'
+  - template: ./variables/build.yml
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Compile
+        pool:
+          vmImage: 'ubuntu-16.04'
+        steps:
+          - template: 'nuget/determine-pr-version.yml@templates'
+            parameters:
+              manualTriggerVersion: ${{ parameters['Package.Version.ManualTrigger'] }}
+          - template: 'build/build-solution.yml@templates'
+            parameters:
+              dotnetSdkVersion: '$(DotNet.Sdk.Version)'
+              versionSuffix: '$(packageVersion)'
+          - task: CopyFiles@2
+            displayName: 'Copy build artifacts'
+            inputs:
+              contents: '**/?(bin|obj)/**'
+              targetFolder: '$(Pipeline.Workspace)/build'
+          - task: PublishPipelineArtifact@0
+            displayName: 'Publish build artifacts'
+            inputs:
+              targetPath: '$(Pipeline.Workspace)/build'
+              artifactName: Build
+
+  - stage: UnitTests
+    displayName: Unit Tests
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: UnitTests
+        displayName: 'Run unit tests'
+        pool:
+          vmImage: 'ubuntu-16.04'
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download build artifacts'
+            inputs:
+              artifact: 'Build'
+              path: '$(Build.SourcesDirectory)'
+          - template: test/run-unit-tests.yml@templates
+            parameters:
+              dotnetSdkVersion: '$(DotNet.Sdk.Version)'
+              projectName: '$(Project).Tests.Unit'
+
+  - stage: ReleaseToMyget
+    displayName: 'Release to MyGet'
+    dependsOn:
+      - UnitTests
+    condition: succeeded()
+    jobs:
+      - job: PushToMyGet
+        displayName: 'Push to MyGet'
+        pool:
+          vmImage: 'ubuntu-16.04'
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download build artifacts'
+            inputs:
+              artifact: 'Build'
+              path: '$(Build.SourcesDirectory)'
+          - template: nuget/publish-preview-package.yml@templates

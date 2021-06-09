@@ -3,13 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30204.135
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FunctionHealthCheck", "src\FunctionHealthCheck\FunctionHealthCheck.csproj", "{3031CB4F-AD17-4E19-825D-BBD2CB941C5D}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{91BEAED9-087E-40A5-9B1D-F3CFCF210DD3}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Function.HealthCheck.SQL", "samples\Function.HealthCheck.SQL\Function.HealthCheck.SQL.csproj", "{43C1BA38-9E0E-4963-B334-DFBB512E4B0C}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A7422A39-DBB4-4E28-8785-CF52E51E00A5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Arcus.WebApi.Health.AzureFunctions", "Arcus.WebApi.Health.AzureFunctions\Arcus.WebApi.Health.AzureFunctions.csproj", "{3031CB4F-AD17-4E19-825D-BBD2CB941C5D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
